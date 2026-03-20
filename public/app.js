@@ -127,8 +127,8 @@ function uploadOne(sizeBytes, onProgress) {
     xhr.onerror   = () => resolve(null);
     xhr.ontimeout = () => resolve(null);
     xhr.timeout   = 60_000;
-    // Use Cloudflare's speed test endpoint — real internet upload, CORS-enabled
-    xhr.open("POST", "https://speed.cloudflare.com/__up");
+    // POST to the app's own server — same origin, no CORS restrictions
+    xhr.open("POST", "/api/upload");
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.send(data.buffer);
   });
@@ -150,14 +150,60 @@ async function measureUpload(onProgress) {
   return results;
 }
 
+// ── CLIENT-SIDE: Ping (HTTP fetch latency to CORS-enabled public endpoints) ──
+
+async function measurePing(onSample) {
+  const targets = [
+    { name: "Cloudflare DNS",  host: "1.1.1.1",        url: "https://1.1.1.1/cdn-cgi/trace" },
+    { name: "Google DNS",      host: "8.8.8.8",        url: "https://dns.google/resolve?name=google.com&type=A" },
+    { name: "Cloudflare CDN",  host: "cloudflare.com", url: "https://speed.cloudflare.com/__down?bytes=0" },
+    { name: "Google HTTPS",    host: "google.com",     url: "https://www.google.com/generate_204" },
+  ];
+
+  return Promise.all(targets.map(async (t) => {
+    const samples = [];
+    for (let i = 0; i < 5; i++) {
+      try {
+        const t0 = performance.now();
+        await fetch(t.url + (t.url.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache: "no-store", mode: "no-cors" });
+        samples.push(performance.now() - t0);
+        if (onSample) onSample(samples[samples.length - 1]);
+      } catch (_) {}
+      await sleep(100);
+    }
+    const min  = samples.length ? Math.min(...samples) : null;
+    const max  = samples.length ? Math.max(...samples) : null;
+    const avg  = samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : null;
+    const loss = ((5 - samples.length) / 5) * 100;
+    return { name: t.name, host: t.host, min_ms: min, avg_ms: avg, max_ms: max, loss_pct: loss };
+  }));
+}
+
+// ── CLIENT-SIDE: DNS (Cloudflare DNS-over-HTTPS, CORS-enabled) ───────────────
+
+async function measureDNS() {
+  const domains = ["google.com", "cloudflare.com", "github.com", "amazon.com", "microsoft.com"];
+
+  return Promise.all(domains.map(async (domain) => {
+    const times = [];
+    for (let i = 0; i < 3; i++) {
+      try {
+        const t0 = performance.now();
+        await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=A`, {
+          headers: { Accept: "application/dns-json" },
+          cache: "no-store",
+        });
+        times.push(performance.now() - t0);
+      } catch (_) {}
+      await sleep(50);
+    }
+    const avg = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
+    return { domain, avg_ms: avg };
+  }));
+}
+
 // ── Utility ───────────────────────────────────────────────────────────────────
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
 
 // ── Main runner ───────────────────────────────────────────────────────────────
 
@@ -191,18 +237,16 @@ async function runAll() {
     result.upload = await measureUpload((mbps) => updateGauge(mbps, 50, "Mbps", true));
     setStep("step-ul", "done");
 
-    // ── Phase 4: Server-side TCP ping (needs raw socket)
+    // ── Phase 4: Client-side HTTP ping
     setStep("step-ping", "active");
-    resetGauge("🏓 Running server-side ping tests…");
-    const pingData = await fetchJSON("/api/ping");
-    result.ping = pingData.results;
+    resetGauge("🏓 Running ping tests…");
+    result.ping = await measurePing((ms) => updateGauge(ms, 200, "ms", false));
     setStep("step-ping", "done");
 
-    // ── Phase 5: Server-side DNS lookup
+    // ── Phase 5: DNS-over-HTTPS resolution timing
     setStep("step-dns", "active");
     resetGauge("🔍 Testing DNS resolution…");
-    const dnsData = await fetchJSON("/api/dns");
-    result.dns = dnsData.results;
+    result.dns = await measureDNS();
     setStep("step-dns", "done");
 
     lastResult = result;
