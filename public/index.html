@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetSpeed – Network Performance Tester</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <header>
+      <div class="logo">📡 NetSpeed</div>
+      <p class="tagline">Network Performance Tester</p>
+    </header>
+
+    <!-- Start Button -->
+    <section class="hero" id="hero">
+      <button class="btn-start" id="btnStart" onclick="runAll()">
+        <span class="btn-icon">▶</span> Start Test
+      </button>
+      <p class="hint" id="hint">Measures YOUR connection speed directly in the browser</p>
+    </section>
+
+    <!-- Network Info Panel (auto-detects on page load) -->
+    <div class="info-panel" id="infoPanel" data-loading="true">
+      <div class="info-item">
+        <div class="info-lbl">Your IP</div>
+        <div class="info-val" id="info-ip">Detecting…</div>
+      </div>
+      <div class="info-item">
+        <div class="info-lbl">ISP / Network</div>
+        <div class="info-val" id="info-isp">–</div>
+      </div>
+      <div class="info-item">
+        <div class="info-lbl">Location</div>
+        <div class="info-val" id="info-loc">–</div>
+      </div>
+      <div class="info-item">
+        <div class="info-lbl">Nearest Server</div>
+        <div class="info-val" id="info-server">–</div>
+      </div>
+    </div>
+
+    <!-- Live Gauge (shown while testing) -->
+    <section class="gauge-section" id="gaugeSection" style="display:none">
+      <div class="gauge-phase" id="gaugePhase">Initialising…</div>
+      <div class="gauge-wrap">
+        <!-- SVG semicircular gauge: centre (120,120), radius 100, arc length ≈ 314 -->
+        <svg class="gauge-svg" viewBox="0 0 240 130" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 20 120 A 100 100 0 0 1 220 120"
+                fill="none" stroke="#1e2235" stroke-width="14" stroke-linecap="round"/>
+          <path id="gaugeFill" d="M 20 120 A 100 100 0 0 1 220 120"
+                fill="none" stroke="#4f8ef7" stroke-width="14" stroke-linecap="round"
+                stroke-dasharray="0 314" style="transition:stroke-dasharray .25s ease,stroke .25s ease"/>
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-speed" id="gaugeValue">–</div>
+          <div class="gauge-unit"  id="gaugeUnit">Mbps</div>
+        </div>
+      </div>
+      <div class="gauge-scale">
+        <span>0</span><span>25</span><span>50</span><span>75</span><span>100+</span>
+      </div>
+    </section>
+
+    <!-- Progress steps -->
+    <section class="progress-section" id="progressSection" style="display:none">
+      <div class="steps">
+        <div class="step" id="step-latency">⚡ Latency</div>
+        <div class="step" id="step-dl">⬇ Download</div>
+        <div class="step" id="step-ul">⬆ Upload</div>
+        <div class="step" id="step-ping">🏓 Ping</div>
+        <div class="step" id="step-dns">🔍 DNS</div>
+      </div>
+    </section>
+
+    <!-- Summary bar -->
+    <section class="summary" id="summary" style="display:none">
+      <div class="stat-box">
+        <div class="stat-val" id="val-dl">–</div>
+        <div class="stat-lbl">⬇ Download</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="val-ul">–</div>
+        <div class="stat-lbl">⬆ Upload</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="val-latency">–</div>
+        <div class="stat-lbl">⚡ Latency</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="val-ping">–</div>
+        <div class="stat-lbl">🏓 Server Ping</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="val-dns">–</div>
+        <div class="stat-lbl">🔍 Avg DNS</div>
+      </div>
+    </section>
+
+    <!-- Info bar -->
+    <div class="server-bar" id="serverBar" style="display:none">
+      <span id="serverLabel">✅ <strong>Test complete</strong> — speeds measured from your browser to Cloudflare</span>
+      <span id="serverTime"></span>
+    </div>
+
+    <!-- Detail cards -->
+    <div class="cards" id="cards" style="display:none">
+
+      <!-- Download card -->
+      <div class="card">
+        <h2>⬇ Download Speed <span class="badge">Client-side</span></h2>
+        <table id="dlTable">
+          <thead><tr><th>Test</th><th>Speed</th><th>Bar</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Upload card -->
+      <div class="card">
+        <h2>⬆ Upload Speed <span class="badge">Client-side</span></h2>
+        <table id="ulTable">
+          <thead><tr><th>Test</th><th>Speed</th><th>Bar</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Ping card -->
+      <div class="card">
+        <h2>🏓 Ping &amp; Packet Loss <span class="badge badge-server">Server-side</span></h2>
+        <table id="pingTable">
+          <thead><tr><th>Target</th><th>Min</th><th>Avg</th><th>Max</th><th>Loss</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- DNS card -->
+      <div class="card">
+        <h2>🔍 DNS Resolution <span class="badge badge-server">Server-side</span></h2>
+        <table id="dnsTable">
+          <thead><tr><th>Domain</th><th>Avg Time</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Re-run -->
+    <div class="rerun" id="rerun" style="display:none">
+      <button class="btn-rerun" onclick="runAll()">🔄 Run Again</button>
+      <button class="btn-json"  onclick="downloadJSON()">📥 Export JSON</button>
+    </div>
+
+    <footer>NetSpeed &bull; Powered by Node.js + Express &bull; Hosted on Render/Railway</footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
