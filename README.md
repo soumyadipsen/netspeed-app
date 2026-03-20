@@ -32,7 +32,35 @@ Built with **Node.js + Express** (no Python, no heavy frameworks).
 3. Select the repo → Railway reads `railway.toml` automatically
 4. Done — public URL generated instantly
 
-### Option 3 — Koyeb
+### Option 3 — Firebase (Hosting + Cloud Functions)
+
+> **Requires:** Firebase CLI, a Google account, and the **Blaze (pay-as-you-go)** plan (needed for outbound network requests from Cloud Functions).
+
+```bash
+# 1. Install Firebase CLI (once)
+npm install -g firebase-tools
+
+# 2. Log in
+firebase login
+
+# 3. Create a project at https://console.firebase.google.com
+#    Then set your project ID in .firebaserc:
+#    Replace "YOUR_FIREBASE_PROJECT_ID" with your actual project ID.
+
+# 4. Install function dependencies
+cd functions && npm install && cd ..
+
+# 5. Deploy
+firebase deploy
+# → Hosting URL: https://YOUR_PROJECT_ID.web.app
+# → Functions URL: https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api
+```
+
+**How it works:**
+- Static files (`public/`) are served by **Firebase Hosting**
+- All `/api/**` requests are rewritten to the **`api` Cloud Function** (Express app in `functions/`)
+
+### Option 4 — Koyeb
 1. Push to GitHub
 2. Go to [koyeb.com](https://koyeb.com) → **Create App → GitHub**
 3. Build: `npm install` | Start: `node index.js`
@@ -55,10 +83,15 @@ npm run dev        # watch mode (nodemon)
 
 ```
 netspeed-app/
-├── index.js          ← Express server + server-side test APIs
+├── index.js          ← Express server (used for local dev / Render / Railway)
 ├── package.json
+├── firebase.json     ← Firebase Hosting + Functions config
+├── .firebaserc       ← Firebase project alias
 ├── render.yaml       ← Render deployment config
 ├── railway.toml      ← Railway deployment config
+├── functions/
+│   ├── index.js      ← Express app exported as a Cloud Function
+│   └── package.json  ← Function dependencies (firebase-functions, express, cors)
 └── public/
     ├── index.html    ← Frontend UI
     ├── style.css     ← Dark-theme styles
