@@ -1,8 +1,20 @@
 # 📡 NetSpeed — Network Performance Tester
 
-A deployable web app that tests **Download speed, Upload speed, Ping latency, Packet loss and DNS resolution** — all from the browser.
+A deployable web app that tests **Download speed, Upload speed, Latency, Ping, Packet loss, and DNS resolution** — all from the browser.
 
 Built with **Node.js + Express** (no Python, no heavy frameworks).
+
+---
+
+## ✨ Features
+
+- **Latency** — measures round-trip time from the browser directly to Cloudflare (8 samples, trimmed average)
+- **Download speed** — streams 10 MB + 25 MB from Cloudflare with live per-chunk Mbps updates
+- **Upload speed** — POSTs 1 MB / 5 MB / 10 MB payloads to Cloudflare with real-time progress
+- **Server-side TCP ping** — pings Google DNS, Cloudflare DNS, OpenDNS, and Google HTTPS (5 samples each, reports min/avg/max + packet loss %)
+- **DNS resolution** — measures server-side lookup time for 5 major domains (3 samples each)
+- **Live animated gauge** — shows real-time speed/latency as each phase runs
+- **Color-coded results** — green / yellow / red thresholds for every metric
 
 ---
 
@@ -32,7 +44,8 @@ Built with **Node.js + Express** (no Python, no heavy frameworks).
 ```bash
 cd netspeed-app
 npm install
-npm start
+npm start          # production
+npm run dev        # watch mode (nodemon)
 # Open http://localhost:3000
 ```
 
@@ -42,23 +55,24 @@ npm start
 
 ```
 netspeed-app/
-├── index.js          ← Express server + all test APIs
+├── index.js          ← Express server + server-side test APIs
 ├── package.json
 ├── render.yaml       ← Render deployment config
 ├── railway.toml      ← Railway deployment config
 └── public/
     ├── index.html    ← Frontend UI
     ├── style.css     ← Dark-theme styles
-    └── app.js        ← Frontend logic
+    └── app.js        ← All client-side test logic (latency, download, upload)
 ```
 
 ---
 
 ## 🔌 API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/ping` | TCP ping to 4 targets (latency + packet loss) |
-| `GET /api/dns` | DNS resolution time for 5 domains |
-| `GET /api/download` | Download speed via Cloudflare (10 MB + 25 MB) |
-| `GET /api/upload` | Upload speed via Cloudflare (1/5/10 MB) |
+> Download, upload, and latency are measured **client-side** by the browser — the server only handles ping and DNS (which require raw sockets / server-side DNS).
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /api/ping` | GET | TCP ping to 4 targets — returns min/avg/max latency + packet loss % |
+| `GET /api/dns` | GET | DNS resolution time for 5 domains (3 samples each, averaged) |
+| `POST /api/upload` | POST | Receives raw bytes from the browser; used as a fallback upload target |
